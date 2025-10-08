@@ -2,23 +2,24 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from texts import t
 from settings import settings
 
-# deeplink на админа, если ссылки нет
-_ADMIN_IDS = getattr(settings, "ADMIN_IDS", []) or [getattr(settings, "ADMIN_ID", None)]
-_SUPPORT_DEEPLINK = f"tg://user?id={_ADMIN_IDS[0]}" if _ADMIN_IDS and _ADMIN_IDS[0] else None
-
+# РАНЬШЕ было:
+# _ADMIN_IDS = getattr(settings, "ADMIN_IDS", []) or [getattr(settings, "ADMIN_ID", None)]
+# _SUPPORT_DEEPLINK = f"tg://user?id={_ADMIN_IDS[0]}" if _ADMIN_IDS and _ADMIN_IDS[0] else None
 
 def kb_main(lang: str, is_platinum: bool, can_open: bool, support_url: str | None) -> InlineKeyboardMarkup:
     """
-    Главное меню для пользователя (только чешский интерфейс).
-    Кнопки смены языка больше нет.
+    Главное меню. Ссылку поддержки даем только https, без tg://user?id=...
+    Порядок приоритетов: support_url из БД → SUPPORT_URL из .env → CHANNEL_URL из .env → https://t.me/
     """
-    sup = support_url or _SUPPORT_DEEPLINK or "https://t.me/"  # БД → deeplink → заглушка
+    sup = (
+        support_url
+        or (getattr(settings, "SUPPORT_URL", "") or None)
+        or (getattr(settings, "CHANNEL_URL", "") or None)
+        or "https://t.me/"
+    )
     rows = [
         [InlineKeyboardButton(text=t(lang, "btn_instruction"), callback_data="instructions")],
-        [
-            InlineKeyboardButton(text=t(lang, "btn_support"), url=sup),
-            # кнопка смены языка убрана
-        ],
+        [InlineKeyboardButton(text=t(lang, "btn_support"), url=sup)],
     ]
     if can_open:
         url = settings.MINI_APP_PLATINUM if is_platinum else settings.MINI_APP
@@ -27,6 +28,7 @@ def kb_main(lang: str, is_platinum: bool, can_open: bool, support_url: str | Non
     else:
         rows.append([InlineKeyboardButton(text=t(lang, "btn_get_signal"), callback_data="get_signal")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
 
 
 def kb_instruction(lang: str) -> InlineKeyboardMarkup:
