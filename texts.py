@@ -26,7 +26,7 @@ T: Dict[str, Dict[str, str]] = {
         "8️⃣ Zvolte obchodní model: \nTESSA Plus – pro běžné uživatele \nTESSA Quantum – pro Platinum uživatele\n"
         "9️⃣ Vyberte libovolný čas expirace.\n"
         "🔟 Zkopírujte stejný čas expirace u brokera PocketOption.\n"
-        "1️⃣1️⃣ Klikněte na „Vygenerovat signál“ a obchodujte výhradně podle analýzy bota – vždy volte vyšší pravděpodobnost."
+        "1️⃣1️⃣ Klikněte na „Vygenerovat signál“ a obchodujte výhradně podle analýzy bota – vždy volte vyšší pravděpodobnost.\n"
         "1️⃣2️⃣ Získejte profit. 💰🚀"
     },
 
