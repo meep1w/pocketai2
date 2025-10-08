@@ -1,19 +1,23 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from texts import t
 from settings import settings
-from config_service import btn_text_cached
 
 # deeplink на админа, если ссылки нет
 _ADMIN_IDS = getattr(settings, "ADMIN_IDS", []) or [getattr(settings, "ADMIN_ID", None)]
 _SUPPORT_DEEPLINK = f"tg://user?id={_ADMIN_IDS[0]}" if _ADMIN_IDS and _ADMIN_IDS[0] else None
 
+
 def kb_main(lang: str, is_platinum: bool, can_open: bool, support_url: str | None) -> InlineKeyboardMarkup:
+    """
+    Главное меню для пользователя (только чешский интерфейс).
+    Кнопки смены языка больше нет.
+    """
     sup = support_url or _SUPPORT_DEEPLINK or "https://t.me/"  # БД → deeplink → заглушка
     rows = [
         [InlineKeyboardButton(text=t(lang, "btn_instruction"), callback_data="instructions")],
         [
             InlineKeyboardButton(text=t(lang, "btn_support"), url=sup),
-            InlineKeyboardButton(text=t(lang, "btn_change_lang"), callback_data="lang"),
+            # кнопка смены языка убрана
         ],
     ]
     if can_open:
@@ -33,18 +37,7 @@ def kb_instruction(lang: str) -> InlineKeyboardMarkup:
     ])
 
 
-def kb_lang(current_lang: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🇷🇺 Русский",  callback_data="setlang:ru"),
-            InlineKeyboardButton(text="🇬🇧 English",  callback_data="setlang:en"),
-        ],
-        [
-            InlineKeyboardButton(text="🇮🇳 हिन्दी",   callback_data="setlang:hi"),
-            InlineKeyboardButton(text="🇪🇸 Español", callback_data="setlang:es"),
-        ],
-        [InlineKeyboardButton(text=t(current_lang, "btn_menu"), callback_data="menu")],
-    ])
+# kb_lang удалена: выбор языка пользователю больше не предлагается.
 
 
 def kb_subscribe(lang: str, channel_url: str) -> InlineKeyboardMarkup:

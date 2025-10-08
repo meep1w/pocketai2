@@ -18,18 +18,19 @@ from db import (
 )
 from texts import t
 from keyboards import (
-    kb_main, kb_instruction, kb_lang, kb_subscribe,
-    kb_register, kb_deposit, kb_access
+    kb_main, kb_instruction,  # kb_lang убран
+    kb_subscribe, kb_register, kb_deposit, kb_access
 )
 from admin import router as admin_router
 from config_service import (
-    pb_secret, channel_id,channel_url,
+    pb_secret, channel_id, channel_url,
     first_deposit_min, platinum_threshold,
-    check_subscription_enabled, load_button_overrides, check_registration_enabled, check_deposit_enabled,support_url
+    check_subscription_enabled, load_button_overrides,
+    check_registration_enabled, check_deposit_enabled, support_url
 )
 
 ASSETS = Path(__file__).parent / "assets"
-DEFAULT_LANG = "en"
+DEFAULT_LANG = "cs"  # единственный язык интерфейса
 
 
 # ----------------- helpers -----------------
@@ -42,8 +43,10 @@ async def has_access_now(u: User) -> bool:
     ok_dep = (not dep_on) or u.has_deposit
     return ok_sub and ok_reg and ok_dep
 
-def user_lang(user: User) -> str:
-    return user.language or DEFAULT_LANG
+
+def user_lang(_user: User) -> str:
+    # Всегда чешский
+    return "cs"
 
 
 async def make_sig(kind: str, click_id: str) -> str:
@@ -51,8 +54,12 @@ async def make_sig(kind: str, click_id: str) -> str:
     return hmac.new(secret.encode(), f"{kind}:{click_id}".encode(), hashlib.sha256).hexdigest()
 
 
-def photo_path(lang: Optional[str], key: str) -> Optional[Path]:
-    subdir = 'ru' if (lang == 'ru') else 'en'
+def photo_path(_lang: Optional[str], key: str) -> Optional[Path]:
+    """
+    Картинки всегда из assets/en (по требованию).
+    Сначала ищем в assets_custom/en, затем в assets/en.
+    """
+    subdir = 'en'
     for base in (ASSETS.parent / 'assets_custom', ASSETS):
         p = base / subdir / f"{key}.jpg"
         try:
@@ -61,8 +68,6 @@ def photo_path(lang: Optional[str], key: str) -> Optional[Path]:
         except Exception:
             pass
     return None
-
-
 
 
 async def delete_previous(bot: Bot, chat_id: int, user: User) -> None:
@@ -119,26 +124,26 @@ async def send_screen(bot: Bot, user: User, key: str, title_key: str, text_key: 
         db_user.last_bot_message_id = msg.message_id
         await session.commit()
 
+
 async def send_deposit_progress(bot: Bot, user: User) -> None:
     """Экран депозита + динамический прогресс (нужная сумма / внесено / осталось)."""
     async with get_session() as session:
         u = await session.get(User, user.id)
         await delete_previous(bot, u.telegram_id, u)
 
-        lang = u.language or DEFAULT_LANG
+        lang = user_lang(u)
         # картинка и базовые тексты (с оверрайдом из БД, если есть)
         p = photo_path(lang, "deposit")
         title = t(lang, "deposit_title")
-        body  = t(lang, "deposit_text")
+        body = t(lang, "deposit_text")
 
-        ov = None
         res = await session.execute(
             select(ContentOverride).where(ContentOverride.lang == lang, ContentOverride.screen == "deposit")
         )
         ov = res.scalar_one_or_none()
         if ov:
             title = ov.title or title
-            body  = ov.text  or body
+            body = ov.text or body
 
         # прогресс
         need = await first_deposit_min()
@@ -172,6 +177,7 @@ async def send_deposit_progress(bot: Bot, user: User) -> None:
 
         u.last_bot_message_id = msg.message_id
         await session.commit()
+
 
 async def check_subscription(bot: Bot, tg_id: int) -> bool:
     try:
@@ -253,18 +259,16 @@ router = Router()
 async def cmd_start(m: Message, bot: Bot):
     async with get_session() as session:
         user = await get_or_create_user(session, m.from_user.id)
-        if not user.language:
-            await send_screen(bot, user, key='langs',
-                              title_key='lang_title', text_key='lang_title',
-                              markup=kb_lang(user_lang(user)))
-            return
+
+        # Язык выбирать не нужно — фикс "cs".
+        # Сразу переходим к главному экрану/воронке.
         can_open = await has_access_now(user)
         sup = await support_url()  # ← из БД
-        await send_screen(bot, user, key='main',
-                          title_key='main_title', text_key='main_desc',
-                          markup=kb_main(user_lang(user), user.is_platinum, can_open, sup))
-
-
+        await send_screen(
+            bot, user, key='main',
+            title_key='main_title', text_key='main_desc',
+            markup=kb_main(user_lang(user), user.is_platinum, can_open, sup)
+        )
 
 
 @router.callback_query(F.data == 'menu')
@@ -273,12 +277,12 @@ async def cb_menu_user(c: CallbackQuery, bot: Bot):
         user = await get_or_create_user(session, c.from_user.id)
         can_open = await has_access_now(user)
         sup = await support_url()  # ← из БД
-        await send_screen(bot, user, key='main',
-                          title_key='main_title', text_key='main_desc',
-                          markup=kb_main(user_lang(user), user.is_platinum, can_open, sup))
+        await send_screen(
+            bot, user, key='main',
+            title_key='main_title', text_key='main_desc',
+            markup=kb_main(user_lang(user), user.is_platinum, can_open, sup)
+        )
     await c.answer()
-
-
 
 
 @router.callback_query(F.data == "instructions")
@@ -289,38 +293,6 @@ async def cb_instructions(c: CallbackQuery, bot: Bot):
             bot, user, key="instruction",
             title_key="instruction_title", text_key="instruction_text",
             markup=kb_instruction(user_lang(user))
-        )
-    await c.answer()
-
-
-@router.callback_query(F.data == "lang")
-async def cb_lang(c: CallbackQuery, bot: Bot):
-    async with get_session() as session:
-        user = await get_or_create_user(session, c.from_user.id)
-        await send_screen(
-            bot, user, key="langs",
-            title_key="lang_title", text_key="lang_title",
-            markup=kb_lang(user_lang(user))
-        )
-    await c.answer()
-
-
-@router.callback_query(F.data.startswith("setlang:"))
-async def cb_setlang(c: CallbackQuery, bot: Bot):
-    lang = c.data.split(":", 1)[1]
-    if lang not in {"ru", "en", "hi", "es"}:
-        lang = DEFAULT_LANG
-    async with get_session() as session:
-        user = await get_or_create_user(session, c.from_user.id)
-        user.language = lang
-        await session.commit()
-
-        can_open = await has_access_now(user)
-        sup = await support_url()  # ← из БД
-        await send_screen(
-            bot, user, key="main",
-            title_key="main_title", text_key="main_desc",
-            markup=kb_main(user_lang(user), user.is_platinum, can_open, sup)
         )
     await c.answer()
 
@@ -340,7 +312,6 @@ async def cb_get_signal(c: CallbackQuery, bot: Bot):
     await c.answer()
 
 
-
 # «Я подписался» на шаге подписки
 @router.callback_query(F.data == "check_sub")
 async def on_check_subscription(c: CallbackQuery, bot: Bot):
@@ -352,7 +323,7 @@ async def on_check_subscription(c: CallbackQuery, bot: Bot):
             user.is_subscribed = True
             await session.commit()
 
-        # просто двигаем дальше по воронке (и покажем алерт в evaluate, если нужно)
+        # двигаем дальше по воронке
         await evaluate_and_route(bot, user)
     await c.answer()
 
@@ -397,7 +368,7 @@ async def cmd_whoami(m: Message):
             "platinum: {}\n"
             "click_id: {}\n"
             "trader_id: {}".format(
-                u.telegram_id, u.group_ab, u.language,
+                u.telegram_id, u.group_ab, user_lang(u),
                 u.is_subscribed, u.is_registered, u.has_deposit,
                 u.total_deposits, u.is_platinum, u.click_id, u.trader_id
             )

@@ -4,7 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DEFAULT_LANG = os.getenv('DEFAULT_LANG', 'en')
+# ===== i18n (только чешский) =====
+DEFAULT_LANG = 'cs'            # фиксируем единственный язык бота
+AVAILABLE_LANGS = ('cs',)      # на будущее, если где-то проверяются доступные
+ASSET_LANG = 'en'              # картинки всегда из assets/en
 
 @dataclass
 class Settings:
